@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>אתר הבחירות והתוצאות</title>
+  
+  <!-- Chart.js & Tailwind -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17" type="text/javascript"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+
+  <style>
+    :root { --ink:#132633; --paper:#f5f3ec; --accent:#d15a38; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; font-family:'Alegreya Sans',sans-serif; color:var(--ink); background:#f5f3ec; }
+    .news-img { width:100%; aspect-ratio:16/10; object-fit:cover; background:#d9dedb; }
+    .news-card { transition:transform .2s ease,box-shadow .2s ease; }
+    .news-card:hover { transform:translateY(-4px); box-shadow:0 16px 35px rgba(19, 38, 51, 0.1); }
+    
+    /* מודאלים */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(19, 38, 51, 0.75); z-index:100; align-items:center; justify-content:center; padding:15px; }
+    .modal-overlay.active { display:flex; }
+    .modal-box { background:#fffefa; border-radius:8px; max-width:600px; width:100%; max-height:90vh; overflow-y:auto; padding:25px; box-shadow:0 20px 40px rgba(0,0,0,0.3); position:relative; }
+    .tab-btn { padding:8px 16px; font-weight:bold; border-bottom:2px solid transparent; cursor:pointer; }
+    .tab-btn.active { border-color:#d15a38; color:#d15a38; }
+  </style>
+ </head>
+ <body class="w-full">
+  <div class="w-full overflow-hidden">
+   
+   <!-- סרגל ניווט עליון -->
+   <header class="w-full border-b border-[#dce0db] bg-[#f5f3ec] sticky top-0 z-50 shadow-sm">
+    <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 md:px-10">
+     <a href="#top" class="flex items-center gap-3 no-underline text-inherit"> 
+      <span class="grid h-10 w-10 place-items-center rounded-full bg-[#d15a38] text-white text-2xl font-bold">🗳️</span> 
+      <span id="site-name-display" class="font-bold text-xl text-[#132633]">מערכת הבחירות</span> 
+     </a>
+     
+     <nav class="flex flex-wrap items-center gap-3 text-sm">
+      <a href="#news" class="font-semibold text-[#132633] px-2 py-1 hover:underline">עדכונים</a> 
+      <a href="#results" class="font-semibold text-[#132633] px-2 py-1 hover:underline">תוצאות הקלפי</a>
+      <a href="#contact" class="font-semibold text-[#132633] px-2 py-1 hover:underline">צור קשר</a>
+      
+      <!-- כפתורי ניהול ומשתמש -->
+      <button onclick="openModal('edit-modal')" class="bg-[#276b70] text-white font-bold px-3 py-1.5 rounded-sm hover:brightness-110">⚙️ מערכת עריכה</button>
+      
+      <div id="auth-buttons" class="flex items-center gap-2">
+       <button onclick="openModal('login-modal')" class="border border-[#132633] text-[#132633] font-bold px-3 py-1.5 rounded-sm hover:bg-[#132633] hover:text-white">🔑 כניסה</button>
+       <button onclick="openModal('register-modal')" class="bg-[#d15a38] text-white font-bold px-3 py-1.5 rounded-sm hover:brightness-110">📝 הרשמה</button>
+      </div>
+
+      <div id="user-profile-buttons" class="hidden flex items-center gap-2">
+       <button onclick="openModal('profile-modal')" class="bg-[#132633] text-white font-bold px-3 py-1.5 rounded-sm">👤 אזור אישי (<span id="user-display-name"></span>)</button>
+       <button onclick="logout()" class="text-red-600 font-bold px-2 py-1 text-xs hover:underline">יציאה</button>
+      </div>
+     </nav>
+    </div>
+   </header>
+
+   <main id="top">
+    <!-- אזור ראשי (Hero) -->
+    <section class="w-full bg-[#f5f3ec] px-5 py-10 md:px-10 md:py-16">
+     <div class="mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[.85fr_1.15fr]">
+      <div>
+       <span id="hero-tag-display" class="inline-block border-r-4 border-[#d15a38] pr-3 font-bold text-[#d15a38]">מערכת בחירות</span>
+       <h1 id="hero-title-display" class="mt-5 max-w-xl text-4xl md:text-5xl font-extrabold leading-[1.05] text-[#132633]">תוצאות ועדכוני הקלפי</h1>
+       <p id="hero-desc-display" class="mt-6 max-w-lg leading-relaxed text-[#60717a] text-lg">ברוכים הבאים למערכת הבחירות. כאן תוכלו לעקוב אחר התוצאות והעדכונים.</p>
+       <a href="#results" class="mt-7 inline-block rounded-sm bg-[#d15a38] px-7 py-3 font-bold text-white no-underline hover:brightness-90">לצפייה בתוצאות הקלפי</a>
+      </div>
+      <div id="hero-img-container" class="relative min-h-[300px] rounded-sm overflow-hidden bg-[#273a40]">
+       <img id="hero-img-display" src="" alt="תמונת בחירות" class="w-full h-full object-cover min-h-[300px] hidden">
+       <div class="absolute bottom-5 right-5 z-10 rounded-sm bg-[#f5f3ec] px-4 py-2 shadow-lg">
+        <span id="hero-caption-display" class="font-bold text-[#132633]">יום הבחירות</span>
+       </div>
+      </div>
+     </div>
+    </section>
+
+    <!-- אזור חדשות -->
+    <section id="news" class="w-full bg-[#fffefa] px-5 py-14 md:px-10 md:py-20">
+     <div class="mx-auto max-w-7xl">
+      <div class="mb-8 border-b border-[#dce0db] pb-5">
+       <span class="font-bold text-[#d15a38]">עדכונים שוטפים</span>
+       <h2 class="mt-2 text-3xl font-extrabold text-[#132633]">חדשות ודיווחים</h2>
+      </div>
+      
+      <!-- גריד כתבות -->
+      <div id="news-grid" class="grid gap-6 md:grid-cols-3">
+       <div id="no-news-msg" class="col-span-3 text-center py-10 text-[#60717a] italic">אין עדיין כתבות חדשות. ניתן להוסיף כתבות במערכת העריכה.</div>
+      </div>
+     </div>
+    </section>
+
+    <!-- אזור תוצאות הבחירות -->
+    <section id="results" class="w-full bg-[#e8eee9] px-5 py-14 md:px-10 md:py-20">
+     <div class="mx-auto max-w-7xl">
+      <span class="font-bold text-[#d15a38]">נתונים בזמן אמת</span>
+      <h2 class="mt-2 text-3xl font-extrabold text-[#132633]">תוצאות ההצבעה בקלפי</h2>
+      
+      <div class="mt-8 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+       
+       <!-- כרטיסי המפלגות והפתקים -->
+       <div class="rounded-sm bg-[#fffefa] p-6 shadow-sm md:p-8">
+        <h3 class="text-xl font-bold text-[#132633] mb-4">המפלגות והפתקים</h3>
+        
+        <div id="parties-display-list" class="space-y-4">
+         <div id="no-parties-msg" class="text-center py-8 text-[#60717a] italic">אין עדיין מפלגות במערכת. היכנסו למערכת העריכה בסרגל העליון כדי להוסיף מפלגות ופתקים.</div>
+        </div>
+
+        <div class="mt-6 border-t border-[#e5e5dd] pt-4 flex justify-between items-center">
+         <span class="font-semibold text-[#60717a]">סה״כ קולות בקלפי:</span> 
+         <span id="total-votes-display" class="font-bold tabular-nums text-[#132633] text-xl">0</span>
+        </div>
+       </div>
+
+       <!-- תרשים גרפי -->
+       <div class="rounded-sm bg-[#fffefa] p-6 shadow-sm md:p-8">
+        <h3 class="text-xl font-bold text-[#132633]">תרשים התוצאות</h3>
+        <div class="relative mt-5 h-64 w-full md:h-72">
+         <canvas id="results-chart" role="img"></canvas>
+        </div>
+       </div>
+
+      </div>
+     </div>
+    </section>
+
+    <!-- אזור צור קשר -->
+    <section id="contact" class="w-full bg-[#fffefa] px-5 py-14 md:px-10 md:py-20">
+     <div class="mx-auto max-w-2xl">
+      <h2 class="text-3xl font-extrabold text-[#132633] mb-2">צור קשר</h2>
+      <p class="text-[#60717a] mb-6">יש לכם שאלה או פנייה לוועדת הבחירות? שלחו לנו הודעה.</p>
+      
+      <form onsubmit="handleContactSubmit(event)" class="space-y-4 bg-[#f5f3ec] p-6 rounded-sm border border-[#dce0db]">
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">שם מלא:</label>
+        <input type="text" id="contact-name" required placeholder="הכנס את שמך" class="w-full p-2.5 rounded-sm border border-[#b8c5be] bg-white">
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">מספר טלפון / מייל ליצירת קשר:</label>
+        <input type="text" id="contact-contact" required placeholder="טלפון או אימייל" class="w-full p-2.5 rounded-sm border border-[#b8c5be] bg-white">
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">תוכן ההודעה:</label>
+        <textarea id="contact-message" required rows="4" placeholder="רשום את הודעתך כאן..." class="w-full p-2.5 rounded-sm border border-[#b8c5be] bg-white"></textarea>
+       </div>
+       <button type="submit" class="w-full bg-[#132633] text-white font-bold py-3 rounded-sm hover:brightness-110">שלח הודעה</button>
+      </form>
+     </div>
+    </section>
+   </main>
+
+   <footer class="w-full bg-[#132633] px-5 py-7 text-center text-white text-sm opacity-90">
+    © כל הזכויות שמורות - אתר תוצאות הבחירות והתוכן
+   </footer>
+  </div>
+
+  <!-- ==================== מודאלים ==================== -->
+
+  <!-- 1. מודאל מערכת עריכה -->
+  <div id="edit-modal" class="modal-overlay">
+   <div class="modal-box">
+    <button onclick="closeModal('edit-modal')" class="absolute top-3 left-3 text-xl font-bold text-[#60717a]">✕</button>
+    
+    <!-- שלב א': הזנת קוד -->
+    <div id="edit-auth-step">
+     <h3 class="text-2xl font-bold text-[#132633] mb-2">⚙️ מערכת עריכה</h3>
+     <p class="text-sm text-[#60717a] mb-4">אנא הכנס קוד גישה למערכת העריכה:</p>
+     <input type="password" id="edit-code-input" placeholder="קוד גישה..." class="w-full border border-[#b8c5be] p-2.5 rounded-sm text-center text-lg font-bold mb-4">
+     <button onclick="checkEditCode()" class="w-full bg-[#276b70] text-white font-bold py-2.5 rounded-sm hover:brightness-110">כניסה למערכת</button>
+     <p id="edit-code-error" class="text-red-600 text-sm mt-2 hidden text-center">קוד שגוי! נסה שנית.</p>
+    </div>
+
+    <!-- שלב ב': פאנל ניהול ועריכה -->
+    <div id="edit-panel-step" class="hidden">
+     <div class="flex border-b border-[#e5e5dd] mb-4 text-sm">
+      <button onclick="switchAdminTab('parties')" id="tab-btn-parties" class="tab-btn active">🗳️ עריכת מפלגות ופתקים</button>
+      <button onclick="switchAdminTab('news')" id="tab-btn-news" class="tab-btn">📰 עריכת חדשות</button>
+      <button onclick="switchAdminTab('hero')" id="tab-btn-hero" class="tab-btn">🖼️ עריכת כותרות</button>
+      <button onclick="switchAdminTab('contact')" id="tab-btn-contact" class="tab-btn">✉️ הודעות צור קשר</button>
+     </div>
+
+     <!-- לשונית 1: עריכת מפלגות -->
+     <div id="admin-tab-parties">
+      <h4 id="party-form-title" class="font-bold text-[#132633] mb-2">הוספת / עריכת מפלגה</h4>
+      <input type="hidden" id="admin-party-id" value="">
+      
+      <div class="space-y-3 bg-[#f5f3ec] p-4 rounded-sm mb-4 border">
+       <input type="text" id="admin-party-name" placeholder="שם המפלגה" class="w-full p-2 border rounded-sm text-sm">
+       <div class="flex gap-2">
+        <input type="text" id="admin-party-ballot" placeholder="אות הפתק (למשל: ג)" class="w-1/2 p-2 border rounded-sm text-sm">
+        <input type="number" id="admin-party-votes" placeholder="מספר קולות" class="w-1/2 p-2 border rounded-sm text-sm">
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">צבע העמודה בגרף:</label>
+        <input type="color" id="admin-party-color" value="#d15a38" class="w-full h-8 cursor-pointer">
+       </div>
+       <div class="flex gap-2">
+        <button onclick="saveParty()" id="save-party-btn" class="w-full bg-[#d15a38] text-white font-bold py-2 rounded-sm hover:brightness-110">+ שמור מפלגה</button>
+        <button onclick="cancelPartyEdit()" id="cancel-party-btn" class="hidden bg-gray-400 text-white font-bold px-4 py-2 rounded-sm hover:brightness-110">ביטול</button>
+       </div>
+      </div>
+      
+      <h5 class="font-bold text-sm text-[#132633] mb-2">מפלגות קיימות:</h5>
+      <div id="admin-parties-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+     </div>
+
+     <!-- לשונית 2: עריכת חדשות -->
+     <div id="admin-tab-news" class="hidden">
+      <h4 class="font-bold text-[#132633] mb-2">הוספת כתבה חדשה</h4>
+      <div class="space-y-3 bg-[#f5f3ec] p-4 rounded-sm mb-4 border">
+       <input type="text" id="admin-news-title" placeholder="כותרת הכתבה" class="w-full p-2 border rounded-sm text-sm">
+       <input type="text" id="admin-news-tag" placeholder="תגית (למשל: אחוזי הצבעה)" class="w-full p-2 border rounded-sm text-sm">
+       <input type="text" id="admin-news-img" placeholder="קישור לתמונה (URL)" class="w-full p-2 border rounded-sm text-sm">
+       <textarea id="admin-news-body" rows="3" placeholder="תוכן הכתבה..." class="w-full p-2 border rounded-sm text-sm"></textarea>
+       <button onclick="saveNewsArticle()" class="w-full bg-[#276b70] text-white font-bold py-2 rounded-sm hover:brightness-110">+ פרסם כתבה</button>
+      </div>
+
+      <h5 class="font-bold text-sm text-[#132633] mb-2">כתבות קיימות:</h5>
+      <div id="admin-news-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+     </div>
+
+     <!-- לשונית 3: עריכת כותרות ותמונה ראשית -->
+     <div id="admin-tab-hero" class="hidden">
+      <div class="space-y-3 bg-[#f5f3ec] p-4 rounded-sm border">
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">שם האתר בסרגל העליון:</label>
+        <input type="text" id="admin-site-name" class="w-full p-2 border rounded-sm text-sm">
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">תגית ראשית (Hero Tag):</label>
+        <input type="text" id="admin-hero-tag" class="w-full p-2 border rounded-sm text-sm">
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">כותרת ראשית:</label>
+        <input type="text" id="admin-hero-title" class="w-full p-2 border rounded-sm text-sm">
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">תיאור קצר:</label>
+        <textarea id="admin-hero-desc" rows="2" class="w-full p-2 border rounded-sm text-sm"></textarea>
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">קישור לתמונה ראשית (URL):</label>
+        <input type="text" id="admin-hero-img" class="w-full p-2 border rounded-sm text-sm">
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-[#132633] mb-1">כיתוב על התמונה:</label>
+        <input type="text" id="admin-hero-caption" class="w-full p-2 border rounded-sm text-sm">
+       </div>
+       <button onclick="saveHeroSettings()" class="w-full bg-[#132633] text-white font-bold py-2 rounded-sm hover:brightness-110">עדכן כותרות ותמונה</button>
+      </div>
+     </div>
+
+     <!-- לשונית 4: פניות צור קשר -->
+     <div id="admin-tab-contact" class="hidden">
+      <h4 class="font-bold text-[#132633] mb-2">הודעות שהתקבלו ממשתמשים:</h4>
+      <div id="admin-contact-messages-list" class="space-y-3 max-h-64 overflow-y-auto"></div>
+     </div>
+    </div>
+   </div>
+  </div>
+
+  <!-- 2. מודאל הרשמה -->
+  <div id="register-modal" class="modal-overlay">
+   <div class="modal-box">
+    <button onclick="closeModal('register-modal')" class="absolute top-3 left-3 text-xl font-bold text-[#60717a]">✕</button>
+    <h3 class="text-2xl font-bold text-[#132633] mb-2">📝 הרשמת משתמש חדש</h3>
+    <form onsubmit="handleRegister(event)" class="space-y-3">
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">שם משתמש:</label>
+      <input type="text" id="reg-username" required placeholder="שם משתמש" class="w-full border p-2 rounded-sm text-sm">
+     </div>
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">סיסמה:</label>
+      <input type="password" id="reg-password" required placeholder="סיסמה" class="w-full border p-2 rounded-sm text-sm">
+     </div>
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">מספר טלפון:</label>
+      <input type="tel" id="reg-phone" required placeholder="050-0000000" class="w-full border p-2 rounded-sm text-sm">
+     </div>
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">אימייל (מייל):</label>
+      <input type="email" id="reg-email" required placeholder="example@email.com" class="w-full border p-2 rounded-sm text-sm">
+     </div>
+     <button type="submit" class="w-full bg-[#d15a38] text-white font-bold py-2.5 rounded-sm hover:brightness-110">צור חשבון</button>
+    </form>
+   </div>
+  </div>
+
+  <!-- 3. מודאל כניסה -->
+  <div id="login-modal" class="modal-overlay">
+   <div class="modal-box">
+    <button onclick="closeModal('login-modal')" class="absolute top-3 left-3 text-xl font-bold text-[#60717a]">✕</button>
+    <h3 class="text-2xl font-bold text-[#132633] mb-2">🔑 כניסת משתמשים</h3>
+    <form onsubmit="handleLogin(event)" class="space-y-3">
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">שם משתמש / מייל / טלפון:</label>
+      <input type="text" id="login-identifier" required placeholder="שם משתמש, מייל או טלפון" class="w-full border p-2 rounded-sm text-sm">
+     </div>
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">סיסמה:</label>
+      <input type="password" id="login-password" required placeholder="סיסמה" class="w-full border p-2 rounded-sm text-sm">
+     </div>
+     <button type="submit" class="w-full bg-[#132633] text-white font-bold py-2.5 rounded-sm hover:brightness-110">התחבר</button>
+    </form>
+   </div>
+  </div>
+
+  <!-- 4. מודאל אזור אישי -->
+  <div id="profile-modal" class="modal-overlay">
+   <div class="modal-box">
+    <button onclick="closeModal('profile-modal')" class="absolute top-3 left-3 text-xl font-bold text-[#60717a]">✕</button>
+    <h3 class="text-2xl font-bold text-[#132633] mb-2">👤 אזור אישי - עדכון פרטים</h3>
+    <form onsubmit="handleProfileUpdate(event)" class="space-y-3">
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">שם משתמש:</label>
+      <input type="text" id="profile-username" readonly class="w-full border p-2 rounded-sm text-sm bg-gray-100 cursor-not-allowed">
+     </div>
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">מספר טלפון:</label>
+      <input type="tel" id="profile-phone" required class="w-full border p-2 rounded-sm text-sm">
+     </div>
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">אימייל (מייל):</label>
+      <input type="email" id="profile-email" required class="w-full border p-2 rounded-sm text-sm">
+     </div>
+     <div>
+      <label class="block text-xs font-bold text-[#132633] mb-1">סיסמה חדשה:</label>
+      <input type="password" id="profile-password" required class="w-full border p-2 rounded-sm text-sm">
+     </div>
+     <button type="submit" class="w-full bg-[#276b70] text-white font-bold py-2.5 rounded-sm hover:brightness-110">שמור שינויים</button>
+    </form>
+   </div>
+  </div>
+
+  <!-- סקריפט הפעלה ראשי -->
+  <script>
+    // מנוע שמירה מקומי משולב המשמש למעקף חסימות iframe ב-Google Sites
+    function getStoreObject() {
+      try {
+        return JSON.parse(window.name);
+      } catch(e) {
+        return {};
+      }
+    }
+
+    function setStoreObject(obj) {
+      try {
+        window.name = JSON.stringify(obj);
+      } catch(e) {}
+    }
+
+    const localStore = {
+      get: (key, fallback) => {
+        // 1. ניסיון מ-localStorage
+        try {
+          const d = localStorage.getItem(key);
+          if (d !== null) return JSON.parse(d);
+        } catch(e) {}
+
+        // 2. ניסיון מ-sessionStorage
+        try {
+          const s = sessionStorage.getItem(key);
+          if (s !== null) return JSON.parse(s);
+        } catch(e) {}
+
+        // 3. ניסיון מ-window.name (חסין רענון ב-iframe!)
+        const obj = getStoreObject();
+        if (obj && obj[key] !== undefined) return obj[key];
+
+        return fallback;
+      },
+      set: (key, val) => {
+        // 1. שמירה ב-localStorage
+        try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+        
+        // 2. שמירה ב-sessionStorage
+        try { sessionStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+
+        // 3. שמירה ב-window.name
+        const obj = getStoreObject();
+        obj[key] = val;
+        setStoreObject(obj);
+      }
+    };
+
+    let currentUser = localStore.get('currentUser', null);
+    const format = new Intl.NumberFormat('he-IL');
+
+    // אתחול תרשים הגרף
+    const chart = new Chart(document.getElementById('results-chart'), {
+      type: 'bar',
+      data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderRadius: 3, maxBarThickness: 80 }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => format.format(ctx.parsed.y) + ' קולות' } } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { family: 'Alegreya Sans', size: 15 }, color: '#132633' } },
+          y: { beginAtZero: true, grid: { color: '#e6ebe7' }, ticks: { callback: val => format.format(val), color: '#60717a' } }
+        }
+      }
+    });
+
+    // 1. סנכרון ועריכת מפלגות
+    function syncParties() {
+      renderPartiesUI(localStore.get('parties', []));
+    }
+
+    function renderPartiesUI(parties) {
+      const container = document.getElementById('parties-display-list');
+      const adminContainer = document.getElementById('admin-parties-list');
+      
+      if (!parties || parties.length === 0) {
+        if (container) container.innerHTML = '<div class="text-center py-8 text-[#60717a] italic">אין עדיין מפלגות במערכת. היכנסו למערכת העריכה בסרגל העליון כדי להוסיף מפלגות ופתקים.</div>';
+        if (adminContainer) adminContainer.innerHTML = '<div class="text-xs text-gray-500 italic">אין מפלגות קיימות</div>';
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.update();
+        document.getElementById('total-votes-display').textContent = '0';
+        return;
+      }
+
+      if (container) container.innerHTML = '';
+      if (adminContainer) adminContainer.innerHTML = '';
+
+      let totalVotes = 0;
+
+      parties.forEach(p => {
+        totalVotes += (Number(p.votes) || 0);
+
+        if (container) {
+          const card = document.createElement('div');
+          card.className = 'flex items-center justify-between p-3 rounded-sm border border-[#e5e5dd] bg-white';
+          card.innerHTML = `
+            <div class="flex items-center gap-3">
+             <span class="grid h-9 w-9 place-items-center rounded-sm text-white font-extrabold text-lg" style="background-color:${p.color || '#d15a38'}">${p.ballot || 'פתק'}</span>
+             <span class="font-bold text-[#132633] text-lg">${p.name}</span>
+            </div>
+            <span class="font-extrabold text-lg tabular-nums text-[#132633]">${format.format(p.votes || 0)} קולות</span>
+          `;
+          container.appendChild(card);
+        }
+
+        if (adminContainer) {
+          const adminRow = document.createElement('div');
+          adminRow.className = 'flex items-center justify-between p-2 bg-white rounded border text-xs my-1';
+          
+          const titleSpan = document.createElement('span');
+          titleSpan.innerHTML = `<b>[${p.ballot}]</b> ${p.name} - ${p.votes} קולות`;
+
+          const btnBox = document.createElement('div');
+          btnBox.className = 'flex gap-1';
+
+          const editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'text-blue-600 font-bold hover:underline bg-blue-50 px-2 py-1 rounded cursor-pointer';
+          editBtn.textContent = '✏️ ערוך';
+          editBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.editParty(p.id, p.name, p.ballot, p.votes, p.color);
+          });
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'text-red-600 font-bold hover:underline bg-red-50 px-2 py-1 rounded cursor-pointer';
+          deleteBtn.textContent = '🗑️ מחק';
+          deleteBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            let list = localStore.get('parties', []).filter(item => String(item.id) !== String(p.id));
+            localStore.set('parties', list);
+            renderPartiesUI(list);
+          });
+
+          btnBox.appendChild(editBtn);
+          btnBox.appendChild(deleteBtn);
+          adminRow.appendChild(titleSpan);
+          adminRow.appendChild(btnBox);
+          adminContainer.appendChild(adminRow);
+        }
+      });
+
+      chart.data.labels = parties.map(p => `[${p.ballot}] ${p.name}`);
+      chart.data.datasets[0].data = parties.map(p => p.votes);
+      chart.data.datasets[0].backgroundColor = parties.map(p => p.color || '#d15a38');
+      chart.update();
+
+      document.getElementById('total-votes-display').textContent = format.format(totalVotes);
+    }
+
+    window.editParty = function(id, name, ballot, votes, color) {
+      document.getElementById('admin-party-id').value = id;
+      document.getElementById('admin-party-name').value = name;
+      document.getElementById('admin-party-ballot').value = ballot;
+      document.getElementById('admin-party-votes').value = votes;
+      document.getElementById('admin-party-color').value = color || '#d15a38';
+
+      document.getElementById('party-form-title').textContent = '✏️ עריכת מפלגה קיימת';
+      document.getElementById('save-party-btn').textContent = '💾 עדכן מפלגה';
+      document.getElementById('cancel-party-btn').classList.remove('hidden');
+    };
+
+    window.cancelPartyEdit = function() {
+      document.getElementById('admin-party-id').value = '';
+      document.getElementById('admin-party-name').value = '';
+      document.getElementById('admin-party-ballot').value = '';
+      document.getElementById('admin-party-votes').value = '';
+      
+      document.getElementById('party-form-title').textContent = 'הוספת / עריכת מפלגה';
+      document.getElementById('save-party-btn').textContent = '+ שמור מפלגה';
+      document.getElementById('cancel-party-btn').classList.add('hidden');
+    };
+
+    window.saveParty = function() {
+      const editId = document.getElementById('admin-party-id').value;
+      const name = document.getElementById('admin-party-name').value.trim();
+      const ballot = document.getElementById('admin-party-ballot').value.trim();
+      const votes = Number(document.getElementById('admin-party-votes').value) || 0;
+      const color = document.getElementById('admin-party-color').value;
+
+      if (!name || !ballot) { alert('אנא הכנס שם מפלגה ואות פתק!'); return; }
+
+      const partyId = editId ? editId : Date.now().toString();
+      const partyObj = { id: partyId, name, ballot, votes, color };
+      
+      let list = localStore.get('parties', []);
+      if (editId) {
+        const idx = list.findIndex(p => String(p.id) === String(editId));
+        if (idx !== -1) list[idx] = partyObj;
+      } else {
+        list.push(partyObj);
+      }
+
+      localStore.set('parties', list);
+      renderPartiesUI(list);
+
+      cancelPartyEdit();
+      alert(editId ? 'המפלגה עודכנה בהצלחה!' : 'המפלגה נוספה בהצלחה!');
+    };
+
+    // 2. סנכרון ורינדור חדשות
+    function syncNews() {
+      renderNewsUI(localStore.get('news', []));
+    }
+
+    function renderNewsUI(articles) {
+      const container = document.getElementById('news-grid');
+      const adminContainer = document.getElementById('admin-news-list');
+
+      if (!articles || articles.length === 0) {
+        if (container) container.innerHTML = '<div class="col-span-3 text-center py-10 text-[#60717a] italic">אין עדיין כתבות חדשות. ניתן להוסיף כתבות במערכת העריכה.</div>';
+        if (adminContainer) adminContainer.innerHTML = '<div class="text-xs text-gray-500 italic">אין כתבות קיימות</div>';
+        return;
+      }
+
+      if (container) container.innerHTML = '';
+      if (adminContainer) adminContainer.innerHTML = '';
+
+      articles.forEach(art => {
+        if (container) {
+          const articleElem = document.createElement('article');
+          articleElem.className = 'news-card overflow-hidden rounded-sm border border-[#e5e5dd] bg-white';
+          articleElem.innerHTML = `
+            ${art.img ? `<img src="${art.img}" class="news-img" loading="lazy">` : ''}
+            <div class="p-6">
+             <span class="font-bold text-[#d15a38] text-xs">${art.tag || 'עדכון'}</span>
+             <h3 class="mt-2 text-xl font-bold leading-tight text-[#132633]">${art.title}</h3>
+             <p class="mt-3 leading-relaxed text-[#60717a] text-sm">${art.body}</p>
+            </div>
+          `;
+          container.appendChild(articleElem);
+        }
+
+        if (adminContainer) {
+          const adminRow = document.createElement('div');
+          adminRow.className = 'flex items-center justify-between p-2 bg-white rounded border text-xs my-1';
+          
+          const titleSpan = document.createElement('span');
+          titleSpan.className = 'truncate max-w-[200px] font-bold';
+          titleSpan.textContent = art.title;
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'text-red-600 font-bold hover:underline bg-red-50 px-2 py-1 rounded cursor-pointer';
+          deleteBtn.textContent = 'מחק';
+          
+          deleteBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            let list = localStore.get('news', []).filter(n => String(n.id) !== String(art.id));
+            localStore.set('news', list);
+            renderNewsUI(list);
+          });
+
+          adminRow.appendChild(titleSpan);
+          adminRow.appendChild(deleteBtn);
+          adminContainer.appendChild(adminRow);
+        }
+      });
+    }
+
+    window.saveNewsArticle = function() {
+      const title = document.getElementById('admin-news-title').value.trim();
+      const tag = document.getElementById('admin-news-tag').value.trim();
+      const img = document.getElementById('admin-news-img').value.trim();
+      const body = document.getElementById('admin-news-body').value.trim();
+
+      if (!title || !body) { alert('אנא הכנס כותרת ותוכן לכתבה!'); return; }
+
+      const newId = Date.now().toString();
+      const newsObj = { id: newId, title, tag, img, body, createdAt: Date.now() };
+
+      let list = localStore.get('news', []);
+      list.push(newsObj);
+      localStore.set('news', list);
+      renderNewsUI(list);
+
+      document.getElementById('admin-news-title').value = '';
+      document.getElementById('admin-news-tag').value = '';
+      document.getElementById('admin-news-img').value = '';
+      document.getElementById('admin-news-body').value = '';
+    };
+
+    // 3. כותרות והגדרות האתר
+    function syncHeroSettings() {
+      renderHeroUI(localStore.get('heroSettings', {}));
+    }
+
+    function renderHeroUI(s) {
+      if (!s) return;
+      if (s.siteName) document.getElementById('site-name-display').textContent = s.siteName;
+      if (s.tag) document.getElementById('hero-tag-display').textContent = s.tag;
+      if (s.title) document.getElementById('hero-title-display').textContent = s.title;
+      if (s.desc) document.getElementById('hero-desc-display').textContent = s.desc;
+      if (s.caption) document.getElementById('hero-caption-display').textContent = s.caption;
+      
+      const imgElem = document.getElementById('hero-img-display');
+      if (s.img) {
+        imgElem.src = s.img;
+        imgElem.classList.remove('hidden');
+      } else {
+        imgElem.classList.add('hidden');
+      }
+
+      document.getElementById('admin-site-name').value = s.siteName || 'מערכת הבחירות';
+      document.getElementById('admin-hero-tag').value = s.tag || 'מערכת בחירות';
+      document.getElementById('admin-hero-title').value = s.title || 'תוצאות ועדכוני הקלפי';
+      document.getElementById('admin-hero-desc').value = s.desc || 'ברוכים הבאים למערכת הבחירות.';
+      document.getElementById('admin-hero-img').value = s.img || '';
+      document.getElementById('admin-hero-caption').value = s.caption || 'יום הבחירות';
+    }
+
+    window.saveHeroSettings = function() {
+      const sObj = {
+        siteName: document.getElementById('admin-site-name').value.trim(),
+        tag: document.getElementById('admin-hero-tag').value.trim(),
+        title: document.getElementById('admin-hero-title').value.trim(),
+        desc: document.getElementById('admin-hero-desc').value.trim(),
+        img: document.getElementById('admin-hero-img').value.trim(),
+        caption: document.getElementById('admin-hero-caption').value.trim()
+      };
+
+      localStore.set('heroSettings', sObj);
+      renderHeroUI(sObj);
+      alert('הכותרות וההגדרות עודכנו בהצלחה!');
+    };
+
+    // 4. פניות צור קשר
+    window.handleContactSubmit = function(e) {
+      e.preventDefault();
+      const name = document.getElementById('contact-name').value.trim();
+      const contactInfo = document.getElementById('contact-contact').value.trim();
+      const message = document.getElementById('contact-message').value.trim();
+
+      const msgObj = { name, contactInfo, message, date: new Date().toLocaleString('he-IL') };
+
+      let list = localStore.get('messages', []);
+      list.push(msgObj);
+      localStore.set('messages', list);
+      renderContactMessagesUI(list);
+
+      alert('הודעתך נשלחה בהצלחה!');
+      document.getElementById('contact-name').value = '';
+      document.getElementById('contact-contact').value = '';
+      document.getElementById('contact-message').value = '';
+    };
+
+    function syncContactMessages() {
+      renderContactMessagesUI(localStore.get('messages', []));
+    }
+
+    function renderContactMessagesUI(msgs) {
+      const container = document.getElementById('admin-contact-messages-list');
+      if (!msgs || msgs.length === 0) {
+        container.innerHTML = '<div class="text-xs text-gray-500 italic">אין עדיין הודעות שנשלחו בצור קשר.</div>';
+        return;
+      }
+      container.innerHTML = msgs.map(m => `
+        <div class="p-3 bg-white rounded border text-xs space-y-1">
+         <div class="flex justify-between font-bold text-[#132633]">
+          <span>${m.name} (${m.contactInfo})</span>
+          <span class="text-gray-400 font-normal">${m.date || ''}</span>
+         </div>
+         <p class="text-gray-700 leading-normal">${m.message}</p>
+        </div>
+      `).join('');
+    }
+
+    // 5. מערכת משתמשים והרשמה
+    window.handleRegister = function(e) {
+      e.preventDefault();
+      const username = document.getElementById('reg-username').value.trim();
+      const password = document.getElementById('reg-password').value.trim();
+      const phone = document.getElementById('reg-phone').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+
+      let users = localStore.get('users', []);
+      if (users.some(u => u.username === username || u.email === email || u.phone === phone)) {
+        alert('משתמש עם פרטים אלו כבר קיים במערכת!');
+        return;
+      }
+
+      const newUser = { username, password, phone, email };
+      users.push(newUser);
+      localStore.set('users', users);
+
+      alert('הרשמה בוצעה בהצלחה! כעת תוכל להתחבר.');
+      closeModal('register-modal');
+    };
+
+    window.handleLogin = function(e) {
+      e.preventDefault();
+      const id = document.getElementById('login-identifier').value.trim();
+      const pass = document.getElementById('login-password').value.trim();
+
+      const users = localStore.get('users', []);
+      const user = users.find(u => (u.username === id || u.email === id || u.phone === id) && u.password === pass);
+
+      if (!user) {
+        alert('פרטי התחברות שגויים! לא ניתן להתחבר ללא הרשמה.');
+        return;
+      }
+
+      currentUser = user;
+      localStore.set('currentUser', user);
+      updateAuthUI();
+      closeModal('login-modal');
+      alert(`ברוך הבא, ${user.username}!`);
+    };
+
+    window.logout = function() {
+      currentUser = null;
+      localStore.set('currentUser', null);
+      updateAuthUI();
+    };
+
+    function updateAuthUI() {
+      if (currentUser) {
+        document.getElementById('auth-buttons').classList.add('hidden');
+        document.getElementById('user-profile-buttons').classList.remove('hidden');
+        document.getElementById('user-display-name').textContent = currentUser.username;
+        document.getElementById('profile-username').value = currentUser.username;
+        document.getElementById('profile-phone').value = currentUser.phone || '';
+        document.getElementById('profile-email').value = currentUser.email || '';
+        document.getElementById('profile-password').value = currentUser.password || '';
+      } else {
+        document.getElementById('auth-buttons').classList.remove('hidden');
+        document.getElementById('user-profile-buttons').classList.add('hidden');
+      }
+    }
+
+    window.handleProfileUpdate = function(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+
+      currentUser.phone = document.getElementById('profile-phone').value.trim();
+      currentUser.email = document.getElementById('profile-email').value.trim();
+      currentUser.password = document.getElementById('profile-password').value.trim();
+
+      let users = localStore.get('users', []);
+      const idx = users.findIndex(u => u.username === currentUser.username);
+      if (idx !== -1) users[idx] = currentUser;
+      
+      localStore.set('users', users);
+      localStore.set('currentUser', currentUser);
+
+      alert('הפרטים תוקנו ועודכנו בהצלחה!');
+      closeModal('profile-modal');
+    };
+
+    window.openModal = function(id) { document.getElementById(id).classList.add('active'); };
+    window.closeModal = function(id) { document.getElementById(id).classList.remove('active'); };
+
+    window.checkEditCode = function() {
+      const code = document.getElementById('edit-code-input').value;
+      if (code === '440469') {
+        document.getElementById('edit-auth-step').classList.add('hidden');
+        document.getElementById('edit-panel-step').classList.remove('hidden');
+        document.getElementById('edit-code-error').classList.add('hidden');
+      } else {
+        document.getElementById('edit-code-error').classList.remove('hidden');
+      }
+    };
+
+    window.switchAdminTab = function(tabName) {
+      ['parties', 'news', 'hero', 'contact'].forEach(t => {
+        document.getElementById(`admin-tab-${t}`).classList.add('hidden');
+        document.getElementById(`tab-btn-${t}`).classList.remove('active');
+      });
+      document.getElementById(`admin-tab-${tabName}`).classList.remove('hidden');
+      document.getElementById(`tab-btn-${tabName}`).classList.add('active');
+    };
+
+    // הפעלה ראשונית
+    updateAuthUI();
+    syncParties();
+    syncNews();
+    syncHeroSettings();
+    syncContactMessages();
+  </script>
+ </body>
+</html>
